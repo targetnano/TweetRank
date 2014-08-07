@@ -13,7 +13,6 @@
 
 package com.twitter.hbc.retweet;
 
-import com.google.common.collect.Lists;
 import com.twitter.hbc.ClientBuilder;
 import com.twitter.hbc.core.Constants;
 import com.twitter.hbc.core.endpoint.StatusesSampleEndpoint;
@@ -22,74 +21,29 @@ import com.twitter.hbc.httpclient.BasicClient;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
 import com.twitter.hbc.twitter4j.Twitter4jStatusClient;
-import com.twitter.hbc.twitter4j.handler.StatusStreamHandler;
-import com.twitter.hbc.twitter4j.message.DisconnectMessage;
 
-import com.twitter.hbc.twitter4j.message.StallWarningMessage;
-import twitter4j.StallWarning;
-import twitter4j.Status;
-import twitter4j.StatusDeletionNotice;
 import twitter4j.StatusListener;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class TweetStreamer {
+public class TweetStreamSink {
 
-  // A bare bones listener
-  private StatusListener listener1 = new StatusListener() {
-    @Override
-    public void onStatus(Status status) {}
-
-    @Override
-    public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {}
-
-    @Override
-    public void onTrackLimitationNotice(int limit) {}
-
-    @Override
-    public void onScrubGeo(long user, long upToStatus) {}
-
-    @Override
-    public void onStallWarning(StallWarning warning) {}
-
-    @Override
-    public void onException(Exception e) {}
-  };
-
-  // A bare bones StatusStreamHandler, which extends listener and gives some extra functionality
-  private StatusListener listener2 = new StatusStreamHandler() {
-    @Override
-    public void onStatus(Status status) {}
-
-    @Override
-    public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {}
-
-    @Override
-    public void onTrackLimitationNotice(int limit) {}
-
-    @Override
-    public void onScrubGeo(long user, long upToStatus) {}
-
-    @Override
-    public void onStallWarning(StallWarning warning) {}
-
-    @Override
-    public void onException(Exception e) {}
-
-    @Override
-    public void onDisconnectMessage(DisconnectMessage message) {}
-
-    @Override
-    public void onStallWarningMessage(StallWarningMessage warning) {}
-
-    @Override
-    public void onUnknownMessageType(String s) {}
-  };
-
-  public void oauth(String consumerKey, String consumerSecret, String token, String secret) throws InterruptedException {
+  private List<StatusListener> listeners_ = new ArrayList<StatusListener>();
+  
+  public TweetStreamSink(int numListeners)
+  {
+	  for(int i = 0; i < numListeners; i++)
+	  {
+		  listeners_.add(new TweetListener());
+	  }
+  }
+  
+  public void startListening(String consumerKey, String consumerSecret, String token, String secret) throws InterruptedException {
     // Create an appropriately sized blocking queue
     BlockingQueue<String> queue = new LinkedBlockingQueue<String>(10000);
 
@@ -115,7 +69,7 @@ public class TweetStreamer {
 
     // Wrap our BasicClient with the twitter4j client
     Twitter4jStatusClient t4jClient = new Twitter4jStatusClient(
-      client, queue, Lists.newArrayList(listener1, listener2), service);
+      client, queue, listeners_, service);
 
     // Establish a connection
     t4jClient.connect();
@@ -123,9 +77,6 @@ public class TweetStreamer {
       // This must be called once per processing thread
       t4jClient.process();
     }
-
-    Thread.sleep(5000);
-
-    client.stop();
   }
+  
 }

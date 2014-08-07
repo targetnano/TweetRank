@@ -6,7 +6,7 @@
   <artifactId>hbc</artifactId>
   <packaging>pom</packaging>
   <version>2.2.1-SNAPSHOT</version>
-  <url>http://github.com/twitter/hbc</url>
+  <url>https://github.com/targetnano/TweetRank</url>
   <description>A Java HTTP client for consuming Twitter's Streaming API</description>
   <modules>
     <module>hbc-core</module>
