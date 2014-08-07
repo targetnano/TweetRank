@@ -11,7 +11,7 @@
  * limitations under the License.
  **/
 
-package com.twitter.hbc.example;
+package com.twitter.hbc.retweet;
 
 import com.google.common.collect.Lists;
 import com.twitter.hbc.ClientBuilder;
@@ -36,7 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class Twitter4jSampleStreamExample {
+public class TweetStreamer {
 
   // A bare bones listener
   private StatusListener listener1 = new StatusListener() {
