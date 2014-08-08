@@ -2,7 +2,7 @@ package com.twitter.hbc.retweet;
 
 import java.util.Comparator;
 
-public class FrequencyComparator implements Comparator<FrequencyDescriptor>
+public class FrequencyComparator implements Comparator<RetweetDescriptor>
 {
 
 	private HeapType heap_;
@@ -18,7 +18,7 @@ public class FrequencyComparator implements Comparator<FrequencyDescriptor>
 		MIN_HEAP
 	}
 	@Override
-	public int compare(FrequencyDescriptor fd1, FrequencyDescriptor fd2) 
+	public int compare(RetweetDescriptor fd1, RetweetDescriptor fd2) 
 	{
 		int retVal = 0;
 		if(heap_.equals(HeapType.MAX_HEAP))

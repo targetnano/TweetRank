@@ -21,7 +21,7 @@ public class TweetClient {
 			 * args[2] -> Access Token
 			 * args[3] -> Access Token Secret
 			 */
-			sink.startListening(args[0], args[1], args[2], args[3]);
+			sink.startListening("Ox91zPc2uCTMOAINlMbJ7J8SP", "qs3YwPwqf6WTUQNVPzpbzOfoUn9QQcoSaTjS0a2ehahIyVQ8Ra", "56464224-T8dxvKRz1q7TgvxCD3N7POFeiTdktTeuJKiysTk4h", "vPplPoOFe3kBjSS1xzNPa6IlfU1IdsV8Zy6Y0vmUrO7Mp");
 		}
 		catch(Exception e) {
 			System.out.println(e.getMessage());

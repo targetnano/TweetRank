@@ -1,11 +1,11 @@
 package com.twitter.hbc.retweet;
 
-public class FrequencyDescriptor implements Comparable
+public class RetweetDescriptor implements Comparable
 {
 	private int frequency_;
 	private String content_;
 	
-	public FrequencyDescriptor(int frequency, String content)
+	public RetweetDescriptor(int frequency, String content)
 	{
 		frequency_ = frequency;
 		content_ = content;
@@ -21,23 +21,28 @@ public class FrequencyDescriptor implements Comparable
 		return content_;
 	}
 	
-	public void deccrementFrequency(int delta)
+	public void incrementFrequency()
 	{
-		frequency_ -= delta;
+		frequency_++;
 	}
 
+	public void decrementFrequency()
+	{
+		frequency_--;
+	}
+	
 	@Override
 	public int compareTo(Object o) 
 	{
-		if(!(o instanceof FrequencyDescriptor))
+		if(!(o instanceof RetweetDescriptor))
 			return -1;
-		FrequencyDescriptor fd = (FrequencyDescriptor)o;
+		RetweetDescriptor fd = (RetweetDescriptor)o;
 		if(frequency_ > fd.getFrequency())
 		{
-			return 1;
+			return -1;
 		}
 		if(frequency_ < fd.getFrequency())
-			return -1;
+			return 1;
 		return 0;
 	}
 }

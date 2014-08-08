@@ -1,7 +1,10 @@
 package com.twitter.hbc.retweet;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
@@ -17,22 +20,20 @@ public class RetweetRanker implements Runnable
 	private BlockingQueue<Status> retweetQueue_;
 	/* Contains all retweets in the given time window */
 	private Queue<RetweetMetadata> rankerQueue_;
-	/* Container top 10 frequenctly retweeted tweets */
-	private ConcurrentSkipListSet<FrequencyDescriptor> topRetweets_; 
-	/* Max-Heap that contains all retweets (except top 10) in descending order */
-	PriorityQueue<FrequencyDescriptor> pq_;
+	/* Contain all retweeted tweets orderby frequency*/
+	PriorityQueue<RetweetDescriptor> pq_;	
 	/* Mapping from retweeted statusId to content */
-	Map<Long, FrequencyDescriptor> idToRetweetMap_;
+	Map<Long, RetweetDescriptor> idToRetweetMap_;
 	
-	private long thresholdInMillis_ = 50000;
+	private long thresholdInMillis_ = 5 * 60 * 1000 * 1000 * 1000L;
+	private int numTopRetweets_ = 4;
 	
 	public RetweetRanker(BlockingQueue<Status> queue)
 	{
 		retweetQueue_ = queue;
 		rankerQueue_ = new LinkedList<RetweetMetadata>();
-		topRetweets_ = new ConcurrentSkipListSet<FrequencyDescriptor>();
-		pq_ = new PriorityQueue<FrequencyDescriptor>(1, new FrequencyComparator(HeapType.MAX_HEAP));
-		idToRetweetMap_ = new HashMap<Long, FrequencyDescriptor>();
+		pq_ = new PriorityQueue<RetweetDescriptor>(1, new FrequencyComparator(HeapType.MAX_HEAP));
+	    idToRetweetMap_ = new HashMap<Long, RetweetDescriptor>();
 	}
 	
 	@Override
@@ -42,12 +43,14 @@ public class RetweetRanker implements Runnable
 		{
 			try
 			{
+				//System.out.println("RankerQ length: " + rankerQueue_.size() + ", pqSize: " + pq_.size() + ", MapSize: " + idToRetweetMap_.size());
 				Status status = retweetQueue_.take();
-				addNewRetweet(status);
 				if(isThresholdViolated())
 				{
 					removeRetweet();
 				}
+				addNewRetweet(status);
+				printTopRetweets();
 			}
 			catch(Exception e)
 			{
@@ -56,16 +59,58 @@ public class RetweetRanker implements Runnable
 		}
 	}
 	
+	private void printTopRetweets()
+	{
+		List<RetweetDescriptor> list = new ArrayList<RetweetDescriptor>();
+		for( int i = 0; i < numTopRetweets_; i++)
+		{
+			if(pq_.isEmpty())
+				break;
+			RetweetDescriptor rD = pq_.remove();
+			System.out.println("Frequency = " + rD.getFrequency() + ", Retweet: " + rD.getContent());
+			list.add(rD);
+		}
+		for(RetweetDescriptor rD : list)
+		{
+			pq_.add(rD);
+		}
+		System.out.println("=================================================================================");
+	}
+	
 	private void addNewRetweet(Status status)
 	{
 		long retweetId = status.getRetweetedStatus().getId();
-		RetweetMetadata rM = new RetweetMetadata(System.currentTimeMillis(), retweetId);
+		RetweetDescriptor rD = idToRetweetMap_.get(retweetId);
+		if(rD == null)
+		{
+			rD = new RetweetDescriptor(1, status.getRetweetedStatus().getText());
+			idToRetweetMap_.put(retweetId, rD);
+		}
+		else
+		{
+			pq_.remove(rD);
+			rD.incrementFrequency();
+		}
+		pq_.add(rD);
+		RetweetMetadata rM = new RetweetMetadata(System.nanoTime(), retweetId);
 		rankerQueue_.add(rM);
 	}
 	
 	private void removeRetweet()
 	{
-		rankerQueue_.poll();
+		RetweetMetadata rM = rankerQueue_.poll();
+		long id = rM.getRetweetId();
+		RetweetDescriptor rD = idToRetweetMap_.get(id);
+		pq_.remove(rD);
+		rD.decrementFrequency();
+		if(rD.getFrequency() > 0)
+		{
+			pq_.add(rD);
+		}
+		else
+		{
+			idToRetweetMap_.remove(id);
+		}
 	}
 	
 	private boolean isThresholdViolated()
@@ -74,7 +119,8 @@ public class RetweetRanker implements Runnable
 		if(!rankerQueue_.isEmpty())
 		{
 			RetweetMetadata rM = rankerQueue_.peek();
-			long timedelta = System.currentTimeMillis() - rM.getTimestamp();
+			long timedelta = System.nanoTime() - rM.getTimestamp();
+			System.out.println("Timedelta = " + timedelta);
 			if(timedelta > thresholdInMillis_)
 				bVal = true;
 		}

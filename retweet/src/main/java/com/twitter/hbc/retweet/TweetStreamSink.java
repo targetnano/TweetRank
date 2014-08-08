@@ -52,7 +52,6 @@ public class TweetStreamSink {
 			/* If the status is a retweet, add it to the queue */
 			if(status.isRetweet())
 			{
-				System.out.println("Offering...");
 				retweetQueue_.offer(status);
 			}
 		}
@@ -80,7 +79,6 @@ public class TweetStreamSink {
 		// Define our endpoint: By default, delimited=length is set (we need this for our processor)
 		// and stall warnings are on.
 		StatusesSampleEndpoint endpoint = new StatusesSampleEndpoint();
-
 		Authentication auth = new OAuth1(consumerKey, consumerSecret, token, secret);
 		// Authentication auth = new BasicAuth(username, password);
 
