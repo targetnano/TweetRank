@@ -13,6 +13,7 @@
 
 package com.twitter.hbc.retweet;
 
+import com.google.common.collect.Lists;
 import com.twitter.hbc.ClientBuilder;
 import com.twitter.hbc.core.Constants;
 import com.twitter.hbc.core.endpoint.StatusesSampleEndpoint;
@@ -22,10 +23,11 @@ import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
 import com.twitter.hbc.twitter4j.Twitter4jStatusClient;
 
+import twitter4j.StallWarning;
+import twitter4j.Status;
+import twitter4j.StatusDeletionNotice;
 import twitter4j.StatusListener;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,50 +35,77 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class TweetStreamSink {
 
-  private List<StatusListener> listeners_ = new ArrayList<StatusListener>();
-  
-  public TweetStreamSink(int numListeners)
-  {
-	  for(int i = 0; i < numListeners; i++)
-	  {
-		  listeners_.add(new TweetListener());
-	  }
-  }
-  
-  public void startListening(String consumerKey, String consumerSecret, String token, String secret) throws InterruptedException {
-    // Create an appropriately sized blocking queue
-    BlockingQueue<String> queue = new LinkedBlockingQueue<String>(10000);
+	private static final int queueSize_ = 10000;
+	private static final int numThreads_ = 4;
+	private BlockingQueue<Status> retweetQueue_;
 
-    // Define our endpoint: By default, delimited=length is set (we need this for our processor)
-    // and stall warnings are on.
-    StatusesSampleEndpoint endpoint = new StatusesSampleEndpoint();
+	public TweetStreamSink(BlockingQueue<Status> retweetQueue)
+	{
+		retweetQueue_ = retweetQueue;
+	}
 
-    Authentication auth = new OAuth1(consumerKey, consumerSecret, token, secret);
-    // Authentication auth = new BasicAuth(username, password);
+	/* Listener that gets callbacks once a message is received */
+	private StatusListener listener = new StatusListener() {
+		@Override
+		public void onStatus(Status status) 
+		{
+			/* If the status is a retweet, add it to the queue */
+			if(status.isRetweet())
+			{
+				System.out.println("Offering...");
+				retweetQueue_.offer(status);
+			}
+		}
 
-    // Create a new BasicClient. By default gzip is enabled.
-    BasicClient client = new ClientBuilder()
-      .hosts(Constants.STREAM_HOST)
-      .endpoint(endpoint)
-      .authentication(auth)
-      .processor(new StringDelimitedProcessor(queue))
-      .build();
+		@Override
+		public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {}
 
-    // Create an executor service which will spawn threads to do the actual work of parsing the incoming messages and
-    // calling the listeners on each message
-    int numProcessingThreads = 4;
-    ExecutorService service = Executors.newFixedThreadPool(numProcessingThreads);
+		@Override
+		public void onTrackLimitationNotice(int limit) {}
 
-    // Wrap our BasicClient with the twitter4j client
-    Twitter4jStatusClient t4jClient = new Twitter4jStatusClient(
-      client, queue, listeners_, service);
+		@Override
+		public void onScrubGeo(long user, long upToStatus) {}
 
-    // Establish a connection
-    t4jClient.connect();
-    for (int threads = 0; threads < numProcessingThreads; threads++) {
-      // This must be called once per processing thread
-      t4jClient.process();
-    }
-  }
-  
+		@Override
+		public void onStallWarning(StallWarning warning) {}
+
+		@Override
+		public void onException(Exception e) {}
+	};
+
+	public void startListening(String consumerKey, String consumerSecret, String token, String secret) throws InterruptedException {
+		// Create an appropriately sized blocking queue
+		BlockingQueue<String> queue = new LinkedBlockingQueue<String>(queueSize_);
+
+		// Define our endpoint: By default, delimited=length is set (we need this for our processor)
+		// and stall warnings are on.
+		StatusesSampleEndpoint endpoint = new StatusesSampleEndpoint();
+
+		Authentication auth = new OAuth1(consumerKey, consumerSecret, token, secret);
+		// Authentication auth = new BasicAuth(username, password);
+
+		// Create a new BasicClient. By default gzip is enabled.
+		BasicClient client = new ClientBuilder()
+		.hosts(Constants.STREAM_HOST)
+		.endpoint(endpoint)
+		.authentication(auth)
+		.processor(new StringDelimitedProcessor(queue))
+		.build();
+
+		// Create an executor service which will spawn threads to do the actual work of parsing the incoming messages and
+		// calling the listeners on each message
+		ExecutorService service = Executors.newFixedThreadPool(numThreads_);
+
+		// Wrap our BasicClient with the twitter4j client
+		Twitter4jStatusClient t4jClient = new Twitter4jStatusClient(
+				client, queue, Lists.newArrayList(listener), service);
+
+		// Establish a connection
+		t4jClient.connect();
+		for (int threads = 0; threads < numThreads_; threads++) {
+			// This must be called once per processing thread
+			t4jClient.process();
+		}
+	}
+
 }
