@@ -37,10 +37,14 @@ public class TweetStreamSink {
 
 	private static final int queueSize_ = 10000;
 	private static final int numThreads_ = 4;
+	private static final String english_ = "en";
+	
 	private BlockingQueue<Status> retweetQueue_;
+	private boolean filterEnglish_ = true;
 
-	public TweetStreamSink(BlockingQueue<Status> retweetQueue)
+	public TweetStreamSink(boolean filterEnglish, BlockingQueue<Status> retweetQueue)
 	{
+		filterEnglish_ = filterEnglish;
 		retweetQueue_ = retweetQueue;
 	}
 
@@ -49,8 +53,13 @@ public class TweetStreamSink {
 		@Override
 		public void onStatus(Status status) 
 		{
+			String language = status.getLang();
+			if(filterEnglish_ && !language.equals(english_))
+			{
+				return;
+			}
 			/* If the status is a retweet, add it to the queue */
-			if(status.isRetweet())
+			if(status.isRetweet() && language.equals(english_))
 			{
 				retweetQueue_.offer(status);
 			}
@@ -76,8 +85,6 @@ public class TweetStreamSink {
 		// Create an appropriately sized blocking queue
 		BlockingQueue<String> queue = new LinkedBlockingQueue<String>(queueSize_);
 
-		// Define our endpoint: By default, delimited=length is set (we need this for our processor)
-		// and stall warnings are on.
 		StatusesSampleEndpoint endpoint = new StatusesSampleEndpoint();
 		Authentication auth = new OAuth1(consumerKey, consumerSecret, token, secret);
 		// Authentication auth = new BasicAuth(username, password);

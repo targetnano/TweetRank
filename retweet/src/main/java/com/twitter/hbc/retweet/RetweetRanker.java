@@ -2,14 +2,12 @@ package com.twitter.hbc.retweet;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.twitter.hbc.retweet.FrequencyComparator.HeapType;
 
@@ -25,15 +23,17 @@ public class RetweetRanker implements Runnable
 	/* Mapping from retweeted statusId to content */
 	Map<Long, RetweetDescriptor> idToRetweetMap_;
 	
-	private long thresholdInMillis_ = 5 * 60 * 1000 * 1000 * 1000L;
-	private int numTopRetweets_ = 4;
+	private int numTopRetweets_;
+	private long windowInNanos_;
 	
-	public RetweetRanker(BlockingQueue<Status> queue)
+	public RetweetRanker(BlockingQueue<Status> queue, int numRetweets, int windowInSecs)
 	{
 		retweetQueue_ = queue;
 		rankerQueue_ = new LinkedList<RetweetMetadata>();
 		pq_ = new PriorityQueue<RetweetDescriptor>(1, new FrequencyComparator(HeapType.MAX_HEAP));
 	    idToRetweetMap_ = new HashMap<Long, RetweetDescriptor>();
+	    numTopRetweets_ = numRetweets;
+	    windowInNanos_ = windowInSecs * 1000 * 1000 * 1000L;
 	}
 	
 	@Override
@@ -43,7 +43,7 @@ public class RetweetRanker implements Runnable
 		{
 			try
 			{
-				//System.out.println("RankerQ length: " + rankerQueue_.size() + ", pqSize: " + pq_.size() + ", MapSize: " + idToRetweetMap_.size());
+				System.out.println("RetweetQ Size: " + retweetQueue_.size() + ", RankerQ length: " + rankerQueue_.size() + ", pqSize: " + pq_.size() + ", MapSize: " + idToRetweetMap_.size());
 				Status status = retweetQueue_.take();
 				if(isThresholdViolated())
 				{
@@ -67,7 +67,7 @@ public class RetweetRanker implements Runnable
 			if(pq_.isEmpty())
 				break;
 			RetweetDescriptor rD = pq_.remove();
-			System.out.println("Frequency = " + rD.getFrequency() + ", Retweet: " + rD.getContent());
+			System.out.println("TWEET #" + (i+1) + " : " + rD.getContent());
 			list.add(rD);
 		}
 		for(RetweetDescriptor rD : list)
@@ -121,7 +121,7 @@ public class RetweetRanker implements Runnable
 			RetweetMetadata rM = rankerQueue_.peek();
 			long timedelta = System.nanoTime() - rM.getTimestamp();
 			System.out.println("Timedelta = " + timedelta);
-			if(timedelta > thresholdInMillis_)
+			if(timedelta > windowInNanos_)
 				bVal = true;
 		}
 		return bVal;

@@ -54,6 +54,9 @@
             <argument>${consumer.secret}</argument>
             <argument>${access.token}</argument>
             <argument>${access.token.secret}</argument>
+	    <argument>${num.retweets}</argument>
+	    <argument>${window.seconds}</argument>
+	    <argument>${filter.english}</argument>
           </arguments>
         </configuration>
       </plugin>
